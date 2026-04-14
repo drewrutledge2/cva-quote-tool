@@ -104,6 +104,31 @@ def parse_quote(pdf_bytes: bytes) -> Dict:
         "equipment": parse_equipment(text),
     }
 
+def output_filename(data):
+    import re
+
+    def clean(value):
+        value = (value or "").strip()
+        value = re.sub(r"\s+", "", value)
+        value = re.sub(r"[^A-Za-z0-9]", "", value)
+        return value
+
+    eq = data.get("equipment", {})
+    serial_range = eq.get("Serial Number or Range", "")
+
+    # Take FIRST serial from range
+    if "-" in serial_range:
+        serial = serial_range.split("-")[0]
+    else:
+        serial = serial_range
+
+    serial = clean(serial)
+
+    if not serial:
+        return "CVA.pdf"
+
+    return f"{serial}_CVA.pdf"
+  
 def build_pdf_bytes(data: Dict) -> bytes:
     output = io.BytesIO()
     doc = SimpleDocTemplate(output, leftMargin=22, rightMargin=22, topMargin=12, bottomMargin=22)
@@ -189,8 +214,7 @@ def index():
 
     data = parse_quote(file.read())
     converted = build_pdf_bytes(data)
-    quote_id = (data.get("quote_id") or "").strip()
-    out_name = f"Quote_{quote_id}_CVA_Final.pdf" if quote_id and quote_id != "0" else "Quote_CVA_Final.pdf"
+    out_name = output_filename(data)
 
     return send_file(io.BytesIO(converted), mimetype="application/pdf", as_attachment=True, download_name=out_name)
 
